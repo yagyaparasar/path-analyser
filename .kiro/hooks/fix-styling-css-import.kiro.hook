@@ -1,0 +1,19 @@
+{
+  "enabled": true,
+  "name": "Fix Styling and CSS Import",
+  "description": "When a JSX or CSS file is edited, ask the agent to review and fix any styling issues and CSS import problems",
+  "version": "1",
+  "when": {
+    "type": "fileEdited",
+    "patterns": [
+      "**/*.jsx",
+      "**/*.css"
+    ]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "Review the edited file and fix any styling issues and CSS import problems. Ensure all CSS files are properly imported and styles are correctly applied."
+  },
+  "workspaceFolderName": "Path-Analyser",
+  "shortName": "fix-styling-css-import"
+}
