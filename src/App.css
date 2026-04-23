@@ -178,6 +178,157 @@ body {
   font-family: ui-monospace, monospace;
 }
 
+/* ── Warning Box ── */
+.warning-box {
+  background: #0a0f1a;
+  border: 1px solid;
+  border-radius: 5px;
+  padding: 10px;
+  display: flex;
+  gap: 10px;
+  animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.warning-box.error {
+  border-color: #ef4444;
+  background: rgba(239, 68, 68, 0.05);
+}
+
+.warning-box.warning {
+  border-color: #f59e0b;
+  background: rgba(245, 158, 11, 0.05);
+}
+
+.warning-box.info {
+  border-color: #3b82f6;
+  background: rgba(59, 130, 246, 0.05);
+}
+
+.warning-icon {
+  font-size: 16px;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.warning-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.warning-message {
+  font-size: 10.5px;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.warning-box.error .warning-message {
+  color: #fca5a5;
+}
+
+.warning-box.warning .warning-message {
+  color: #fcd34d;
+}
+
+.warning-box.info .warning-message {
+  color: #93c5fd;
+}
+
+.warning-action {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #e2e8f0;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 10px;
+  font-weight: 500;
+  align-self: flex-start;
+  transition: all 0.15s;
+}
+
+.warning-action:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+/* ── Intelligence Panel ── */
+.intelligence-panel {
+  background: linear-gradient(135deg, #0a0f1a 0%, #0d1117 100%);
+}
+
+.intelligence-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.intel-section {
+  background: rgba(22, 27, 39, 0.6);
+  border: 1px solid #1a2235;
+  border-radius: 5px;
+  padding: 8px 10px;
+  transition: all 0.2s;
+}
+
+.intel-section:hover {
+  border-color: #2d3a5c;
+  background: rgba(22, 27, 39, 0.8);
+}
+
+.intel-label {
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: #00d4ff;
+  margin-bottom: 5px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.intel-value {
+  font-size: 10.5px;
+  color: #c9d1d9;
+  line-height: 1.5;
+}
+
+.intel-complexity {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 10.5px;
+  color: #8b949e;
+}
+
+.intel-complexity span {
+  color: #00d4ff;
+  font-family: ui-monospace, monospace;
+  font-weight: 600;
+}
+
+.intel-example {
+  font-style: italic;
+  color: #a8b5c9;
+  background: rgba(0, 212, 255, 0.03);
+  padding: 6px 8px;
+  border-radius: 4px;
+  border-left: 2px solid #00d4ff;
+}
+
 /* ── Form / Selects ── */
 .form-group {
   margin-bottom: 8px;

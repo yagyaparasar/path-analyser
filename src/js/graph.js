@@ -1,4 +1,5 @@
 // ─── Graph Data Structure ─────────────────────────────────────────
+import Data from './data.json';
 
 export class Graph {
   constructor() {
@@ -75,49 +76,8 @@ export function generatePresetGraph(graph) {
   graph.clear();
   graph.directed = false;
 
-  const nodes = [
-    // ── Northwest cluster ──
-    { id: 'APT', label: 'Airport',    x: 85,  y: 90  },
-    { id: 'NTH', label: 'Northgate',  x: 250, y: 52  },
-    { id: 'UNI', label: 'University', x: 145, y: 205 },
-    // ── North-central ──
-    { id: 'TPK', label: 'Tech Park',  x: 380, y: 115 },
-    { id: 'ARN', label: 'Arena',      x: 505, y: 72  },
-    { id: 'MSM', label: 'Museum',     x: 435, y: 190 },
-    // ── Northeast cluster ──
-    { id: 'STD', label: 'Stadium',    x: 655, y: 62  },
-    { id: 'RDG', label: 'Ridge',      x: 775, y: 108 },
-    { id: 'HTP', label: 'Hilltop',    x: 920, y: 78  },
-    // ── West ──
-    { id: 'WST', label: 'Westfield',  x: 52,  y: 345 },
-    { id: 'MAL', label: 'Mall',       x: 172, y: 325 },
-    // ── Center ──
-    { id: 'CTR', label: 'Central',    x: 340, y: 300 },
-    { id: 'MKT', label: 'Market',     x: 510, y: 255 },
-    { id: 'LIB', label: 'Library',    x: 660, y: 210 },
-    // ── Mid-center ──
-    { id: 'DWN', label: 'Downtown',   x: 475, y: 380 },
-    { id: 'PLZ', label: 'Plaza',      x: 635, y: 355 },
-    // ── East ──
-    { id: 'EST', label: 'Eastside',   x: 850, y: 265 },
-    { id: 'VLY', label: 'Valley',     x: 975, y: 325 },
-    // ── Southwest ──
-    { id: 'GDN', label: 'Garden',     x: 52,  y: 485 },
-    { id: 'PRK', label: 'Park',       x: 175, y: 470 },
-    { id: 'STN', label: 'Station',    x: 325, y: 440 },
-    // ── South-center ──
-    { id: 'ZOO', label: 'Zoo',        x: 530, y: 505 },
-    { id: 'LKE', label: 'Lake',       x: 330, y: 565 },
-    // ── Southeast ──
-    { id: 'HBR', label: 'Harbor',     x: 810, y: 395 },
-    { id: 'PIR', label: 'Pier',       x: 720, y: 485 },
-    { id: 'LHT', label: 'Lighthouse', x: 885, y: 485 },
-    // ── Far south ──
-    { id: 'CRK', label: 'Creek',      x: 130, y: 590 },
-    { id: 'DPT', label: 'Depot',      x: 52,  y: 590 },
-    { id: 'BCH', label: 'Beach',      x: 480, y: 620 },
-    { id: 'MRN', label: 'Marina',     x: 680, y: 582 },
-  ];
+  // Import nodes from data.json
+  const nodes = Data.nodes;
 
   nodes.forEach(n => graph.addNode(n.id, n.label, n.x, n.y));
 
@@ -142,22 +102,41 @@ export function generatePresetGraph(graph) {
     }
   }
 
-  // ── Strategic long-distance connections for extra density ──
-  const extras = [
-    ['APT', 'WST',  15], ['NTH', 'ARN',   14], ['HTP', 'VLY',  14],
-    ['UNI', 'CTR',  12], ['STD', 'LIB',   8 ], ['RDG', 'EST',   9],
-    ['MAL', 'STN',  10], ['CTR', 'DWN',   7 ], ['PLZ', 'HBR',  11],
-    ['DWN', 'ZOO',   8], ['PRK', 'LKE',  10], ['ZOO', 'PIR',  13],
-    ['PIR', 'MRN',   7], ['LKE', 'BCH',  10], ['BCH', 'MRN',  12],
-    ['GDN', 'DPT',   6], ['CRK', 'LKE',  11], ['LHT', 'VLY',  13],
-    ['ARN', 'MKT',   11], ['MSM', 'DWN',  12], ['TPK', 'MSM',   6],
-  ];
+  // ── Strategic long-distance connections from data.json ──
+  const extras = Data.edges;
 
-  extras.forEach(([a, b, w]) => {
-    const key1 = `${a}-${b}`, key2 = `${b}-${a}`;
+  extras.forEach(({ source, target, weight }) => {
+    const key1 = `${source}-${target}`, key2 = `${target}-${source}`;
     if (!added.has(key1) && !added.has(key2)) {
-      graph.addEdge(a, b, w);
+      graph.addEdge(source, target, weight);
       added.add(key1);
     }
   });
+}
+
+// ─── Graph Analysis Utilities ─────────────────────────────────────
+
+export function analyzeGraph(graph) {
+  let hasNegativeWeights = false;
+  let minWeight = Infinity;
+  let maxWeight = -Infinity;
+  let totalWeight = 0;
+  let edgeCount = 0;
+
+  for (const edge of graph.edges.values()) {
+    if (edge.weight < 0) hasNegativeWeights = true;
+    minWeight = Math.min(minWeight, edge.weight);
+    maxWeight = Math.max(maxWeight, edge.weight);
+    totalWeight += edge.weight;
+    edgeCount++;
+  }
+
+  return {
+    hasNegativeWeights,
+    minWeight: edgeCount > 0 ? minWeight : 0,
+    maxWeight: edgeCount > 0 ? maxWeight : 0,
+    avgWeight: edgeCount > 0 ? totalWeight / edgeCount : 0,
+    nodeCount: graph.nodes.size,
+    edgeCount,
+  };
 }

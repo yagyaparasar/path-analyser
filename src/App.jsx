@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import './App.css'
-import { Graph, generatePresetGraph } from './js/graph.js'
+import { Graph, generatePresetGraph, analyzeGraph } from './js/graph.js'
 import { Renderer } from './js/renderer.js'
 import { bfs, dfs, dijkstra, aStar, bellmanFord, ALGORITHMS } from './js/algorithms.js'
 
@@ -105,6 +105,8 @@ export default function App() {
   const [sourceId, setSourceId] = useState(null)
   const [targetId, setTargetId] = useState(null)
   const [nodeOptions, setNodeOptions] = useState([])
+  const [graphAnalysis, setGraphAnalysis] = useState(null)
+  const [warning, setWarning] = useState(null)
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -131,6 +133,10 @@ export default function App() {
       setEdgeCount(graph.edges.size)
       setSourceId(src)
       setTargetId(tgt)
+
+      // Initial graph analysis
+      const analysis = analyzeGraph(graph)
+      setGraphAnalysis(analysis)
 
       const s = {
         graph, renderer,
@@ -167,6 +173,45 @@ export default function App() {
   // Keep mutable refs in sync with React state
   useEffect(() => { if (appRef.current) appRef.current.speed = speed }, [speed])
   useEffect(() => { if (appRef.current) appRef.current.algorithm = algorithm }, [algorithm])
+
+  // Analyze graph and generate warnings when algorithm or graph changes
+  useEffect(() => {
+    if (!appRef.current) return
+    const analysis = analyzeGraph(appRef.current.graph)
+    setGraphAnalysis(analysis)
+
+    // Generate warnings based on algorithm and graph properties
+    const algoInfo = ALGORITHMS[algorithm]
+    let newWarning = null
+
+    if (algoInfo.requiresNonNegative && analysis.hasNegativeWeights) {
+      newWarning = {
+        type: 'error',
+        message: `${algoInfo.name} cannot handle negative edge weights and may produce incorrect results. Use Bellman-Ford instead.`,
+        suggestion: 'bellmanFord'
+      }
+    } else if (algorithm === 'bellmanFord' && !analysis.hasNegativeWeights && analysis.edgeCount > 0) {
+      newWarning = {
+        type: 'info',
+        message: `Your graph has no negative weights. Dijkstra's or A* would be faster (O((V+E)log V) vs O(V×E)).`,
+        suggestion: 'dijkstra'
+      }
+    } else if (algorithm === 'bfs' && analysis.maxWeight > analysis.minWeight && analysis.edgeCount > 0) {
+      newWarning = {
+        type: 'warning',
+        message: 'BFS ignores edge weights and only counts hops. For weighted graphs, use Dijkstra or A* for optimal paths.',
+        suggestion: 'dijkstra'
+      }
+    } else if (algorithm === 'dfs') {
+      newWarning = {
+        type: 'warning',
+        message: 'DFS does not guarantee the shortest path. It explores depth-first and may find suboptimal routes.',
+        suggestion: null
+      }
+    }
+
+    setWarning(newWarning)
+  }, [algorithm, nodeCount, edgeCount])
 
   function handleRun() {
     const s = appRef.current; if (!s) return
@@ -233,6 +278,9 @@ export default function App() {
         setNodeOptions(options)
         setNodeCount(s.graph.nodes.size); setEdgeCount(s.graph.edges.size)
         setSourceId(null); setTargetId(null)
+        // Trigger analysis update
+        const analysis = analyzeGraph(s.graph)
+        setGraphAnalysis(analysis)
       } catch { /* invalid JSON */ }
     }
     reader.readAsText(file); e.target.value = ''
@@ -260,6 +308,9 @@ export default function App() {
     setNodeOptions(options)
     setNodeCount(s.graph.nodes.size); setEdgeCount(s.graph.edges.size)
     setSourceId(s.source); setTargetId(s.target)
+    // Trigger analysis update
+    const analysis = analyzeGraph(s.graph)
+    setGraphAnalysis(analysis)
   }
 
   const info = ALGORITHMS[algorithm]
@@ -298,6 +349,54 @@ export default function App() {
               <div className="algo-info">
                 <p className="algo-desc">{info.description}</p>
                 <p className="algo-complexity">Time: <span>{info.complexity}</span></p>
+              </div>
+            </section>
+
+            {warning && (
+              <section className="panel">
+                <div className={`warning-box ${warning.type}`}>
+                  <div className="warning-icon">
+                    {warning.type === 'error' && '⚠️'}
+                    {warning.type === 'warning' && '⚡'}
+                    {warning.type === 'info' && 'ℹ️'}
+                  </div>
+                  <div className="warning-content">
+                    <p className="warning-message">{warning.message}</p>
+                    {warning.suggestion && (
+                      <button
+                        className="warning-action"
+                        onClick={() => setAlgorithm(warning.suggestion)}
+                      >
+                        Switch to {ALGORITHMS[warning.suggestion].name}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </section>
+            )}
+
+            <section className="panel intelligence-panel">
+              <h3 className="panel-title">Algorithm Intelligence</h3>
+              <div className="intelligence-content">
+                <div className="intel-section">
+                  <div className="intel-label">✓ Best Use Case</div>
+                  <div className="intel-value">{info.bestUseCase}</div>
+                </div>
+                <div className="intel-section">
+                  <div className="intel-label">✗ Avoid When</div>
+                  <div className="intel-value">{info.avoidWhen}</div>
+                </div>
+                <div className="intel-section">
+                  <div className="intel-label">⏱ Complexity</div>
+                  <div className="intel-complexity">
+                    <div>Time: <span>{info.complexity}</span></div>
+                    <div>Space: <span>{info.spaceComplexity}</span></div>
+                  </div>
+                </div>
+                <div className="intel-section">
+                  <div className="intel-label">🌍 Real-World Example</div>
+                  <div className="intel-value intel-example">{info.realWorldExample}</div>
+                </div>
               </div>
             </section>
 
