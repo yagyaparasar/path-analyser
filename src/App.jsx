@@ -33,6 +33,7 @@ function processEvent(ev, s) {
       renderer.highlightPath(ev.nodes, ev.edges)
       s.stats.pathCost = ev.distance ?? ev.nodes.length - 1
       s.stats.pathHops = ev.nodes.length
+      s.pathData = { nodes: ev.nodes, edges: ev.edges, distance: ev.distance }
       break
     default: break
   }
@@ -42,6 +43,7 @@ function initAlgo(s, setStats, setRunning) {
   if (!s.source || !s.target) return false
   s.renderer.resetStates()
   s.stats = emptyStats()
+  s.pathData = null
   setStats({ ...s.stats })
   const fn = ALGO_MAP[s.algorithm]
   if (!fn) return false
@@ -51,10 +53,10 @@ function initAlgo(s, setStats, setRunning) {
   return true
 }
 
-function stepAlgo(s, setStats, setRunning, setPlaying) {
+function stepAlgo(s, setStats, setRunning, setPlaying, setPathStory, setPathData) {
   if (!s.gen) return false
   const r = s.gen.next()
-  if (r.done) { finishAlgo(s, setStats, setRunning, setPlaying); return false }
+  if (r.done) { finishAlgo(s, setStats, setRunning, setPlaying, setPathStory, setPathData); return false }
   s.stats.steps++
   processEvent(r.value, s)
   setStats({ ...s.stats })
@@ -68,27 +70,120 @@ function pauseAlgo(s, setPlaying) {
   setPlaying(false)
 }
 
-function playAlgo(s, setStats, setRunning, setPlaying) {
+function playAlgo(s, setStats, setRunning, setPlaying, setPathStory, setPathData) {
   if (!s.running) return
   s.playing = true
   setPlaying(true)
   s.timer = setInterval(() => {
-    if (!stepAlgo(s, setStats, setRunning, setPlaying)) pauseAlgo(s, setPlaying)
+    if (!stepAlgo(s, setStats, setRunning, setPlaying, setPathStory, setPathData)) pauseAlgo(s, setPlaying)
   }, s.speed)
 }
 
-function finishAlgo(s, setStats, setRunning, setPlaying) {
+function finishAlgo(s, setStats, setRunning, setPlaying, setPathStory, setPathData) {
   s.running = false; s.playing = false
   clearInterval(s.timer); s.timer = null
   setStats({ ...s.stats }); setRunning(false); setPlaying(false)
+  
+  if (s.pathData) {
+    const story = generatePathStory(s.graph, s.pathData, s.algorithm, s.stats, s.source, s.target)
+    setPathStory(story)
+    setPathData(s.pathData)
+  }
 }
 
 function resetAlgo(s, setStats, setRunning, setPlaying) {
   pauseAlgo(s, setPlaying)
   s.gen = null; s.running = false
   s.stats = emptyStats()
+  s.pathData = null
   s.renderer.resetStates()
   setStats({ ...s.stats }); setRunning(false)
+}
+
+function generatePathStory(graph, pathData, algorithm, stats, sourceId, targetId) {
+  const { nodes, edges, distance } = pathData
+  
+  const edgeWeights = edges.map(eid => {
+    const edge = graph.edges.get(eid)
+    return edge ? edge.weight : 0
+  })
+  
+  const maxWeight = Math.max(...edgeWeights)
+  const minWeight = Math.min(...edgeWeights)
+  const avgWeight = edgeWeights.reduce((a, b) => a + b, 0) / edgeWeights.length
+  
+  const maxWeightIdx = edgeWeights.indexOf(maxWeight)
+  const expensiveEdge = edges[maxWeightIdx]
+  const expensiveEdgeObj = graph.edges.get(expensiveEdge)
+  
+  const directDistance = nodes.length - 1
+  const efficiency = stats.visited / graph.nodes.size
+  
+  let narrative = ''
+  let approach = ''
+  
+  switch (algorithm) {
+    case 'dijkstra':
+      approach = efficiency < 0.3 ? 'took a very direct route' : efficiency < 0.6 ? 'explored efficiently' : 'thoroughly examined alternatives'
+      narrative = `Dijkstra's algorithm ${approach}, visiting ${stats.visited} nodes to find the optimal path. `
+      if (maxWeight > avgWeight * 1.5) {
+        narrative += `It navigated around some heavy edges, though it had to cross one costly connection (weight ${maxWeight}). `
+      } else {
+        narrative += `The path maintains relatively balanced edge weights. `
+      }
+      break
+    case 'aStar':
+      approach = efficiency < 0.25 ? 'made a beeline' : efficiency < 0.5 ? 'navigated smartly' : 'explored carefully'
+      narrative = `A* ${approach} toward the target using spatial heuristics, checking only ${stats.visited} nodes. `
+      narrative += `The heuristic guided it ${efficiency < 0.3 ? 'almost perfectly' : 'quite well'}, avoiding unnecessary exploration. `
+      break
+    case 'bfs':
+      narrative = `BFS explored ${stats.visited} nodes in expanding waves, finding a path with ${nodes.length} hops. `
+      if (edgeWeights.some(w => w > avgWeight * 1.5)) {
+        narrative += `Note: BFS ignores edge weights, so this path may not be cost-optimal. `
+      }
+      break
+    case 'dfs':
+      narrative = `DFS dove deep into the graph, visiting ${stats.visited} nodes before finding a path. `
+      narrative += `This path has ${nodes.length} hops, but DFS doesn't guarantee it's the shortest. `
+      break
+    case 'bellmanFord':
+      narrative = `Bellman-Ford systematically relaxed edges ${Math.ceil(stats.steps / graph.edges.size)} times, `
+      narrative += `visiting ${stats.visited} nodes to guarantee the optimal path even with negative weights. `
+      break
+  }
+  
+  if (nodes.length <= 4) {
+    narrative += `The path is remarkably short—just ${nodes.length} nodes! `
+  } else if (nodes.length > directDistance * 1.5) {
+    narrative += `The path took a bit of a detour (${nodes.length} nodes). `
+  }
+  
+  const avgDegree = (graph.edges.size * 2) / graph.nodes.size
+  let graphPattern = ''
+  if (avgDegree > 4) {
+    graphPattern = 'Graph is highly interconnected, leading to multiple near-optimal paths.'
+  } else if (avgDegree > 2.5) {
+    graphPattern = 'Graph has moderate connectivity with several alternative routes.'
+  } else {
+    graphPattern = 'Graph is sparsely connected, limiting path options.'
+  }
+  
+  return {
+    narrative,
+    graphPattern,
+    breakdown: {
+      mostExpensive: {
+        edge: expensiveEdge,
+        weight: maxWeight,
+        from: expensiveEdgeObj?.source,
+        to: expensiveEdgeObj?.target
+      },
+      avgWeight: avgWeight.toFixed(1),
+      efficiency: (efficiency * 100).toFixed(1),
+      directness: ((directDistance / nodes.length) * 100).toFixed(0)
+    }
+  }
 }
 
 export default function App() {
@@ -107,12 +202,13 @@ export default function App() {
   const [nodeOptions, setNodeOptions] = useState([])
   const [graphAnalysis, setGraphAnalysis] = useState(null)
   const [warning, setWarning] = useState(null)
+  const [pathStory, setPathStory] = useState(null)
+  const [pathData, setPathData] = useState(null)
 
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas || appRef.current) return
 
-    // Wait one frame so .canvas-container has its final layout dimensions
     const raf = requestAnimationFrame(() => {
       const graph = new Graph()
       generatePresetGraph(graph)
@@ -134,7 +230,6 @@ export default function App() {
       setSourceId(src)
       setTargetId(tgt)
 
-      // Initial graph analysis
       const analysis = analyzeGraph(graph)
       setGraphAnalysis(analysis)
 
@@ -146,6 +241,7 @@ export default function App() {
         speed: 150,
         running: false, playing: false,
         stats: emptyStats(),
+        pathData: null
       }
       appRef.current = s
 
@@ -157,10 +253,12 @@ export default function App() {
           s.source = id; renderer.selectedSource = id; setSourceId(id)
           s.target = null; renderer.selectedTarget = null; setTargetId(null)
           resetAlgo(s, setStats, setRunning, setPlaying)
+          setPathStory(null); setPathData(null)
         } else {
           if (id === s.source) return
           s.target = id; renderer.selectedTarget = id; setTargetId(id)
           resetAlgo(s, setStats, setRunning, setPlaying)
+          setPathStory(null); setPathData(null)
         }
       })
 
@@ -170,17 +268,14 @@ export default function App() {
     return () => cancelAnimationFrame(raf)
   }, [])
 
-  // Keep mutable refs in sync with React state
   useEffect(() => { if (appRef.current) appRef.current.speed = speed }, [speed])
   useEffect(() => { if (appRef.current) appRef.current.algorithm = algorithm }, [algorithm])
 
-  // Analyze graph and generate warnings when algorithm or graph changes
   useEffect(() => {
     if (!appRef.current) return
     const analysis = analyzeGraph(appRef.current.graph)
     setGraphAnalysis(analysis)
 
-    // Generate warnings based on algorithm and graph properties
     const algoInfo = ALGORITHMS[algorithm]
     let newWarning = null
 
@@ -215,14 +310,14 @@ export default function App() {
 
   function handleRun() {
     const s = appRef.current; if (!s) return
-    if (s.running) { playAlgo(s, setStats, setRunning, setPlaying); return }
-    if (initAlgo(s, setStats, setRunning)) playAlgo(s, setStats, setRunning, setPlaying)
+    if (s.running) { playAlgo(s, setStats, setRunning, setPlaying, setPathStory, setPathData); return }
+    if (initAlgo(s, setStats, setRunning)) playAlgo(s, setStats, setRunning, setPlaying, setPathStory, setPathData)
   }
 
   function handleStep() {
     const s = appRef.current; if (!s) return
     if (!s.running) initAlgo(s, setStats, setRunning)
-    stepAlgo(s, setStats, setRunning, setPlaying)
+    stepAlgo(s, setStats, setRunning, setPlaying, setPathStory, setPathData)
   }
 
   function handlePause() {
@@ -238,12 +333,14 @@ export default function App() {
       const r = s.gen.next(); if (r.done) break
       s.stats.steps++; processEvent(r.value, s)
     }
-    finishAlgo(s, setStats, setRunning, setPlaying)
+    finishAlgo(s, setStats, setRunning, setPlaying, setPathStory, setPathData)
   }
 
   function handleReset() {
     const s = appRef.current; if (!s) return
     resetAlgo(s, setStats, setRunning, setPlaying)
+    setPathStory(null)
+    setPathData(null)
   }
 
   function handleSourceChange(e) {
@@ -251,6 +348,7 @@ export default function App() {
     s.source = e.target.value; s.renderer.selectedSource = e.target.value
     setSourceId(e.target.value)
     resetAlgo(s, setStats, setRunning, setPlaying)
+    setPathStory(null); setPathData(null)
   }
 
   function handleTargetChange(e) {
@@ -259,6 +357,7 @@ export default function App() {
     s.target = e.target.value; s.renderer.selectedTarget = e.target.value
     setTargetId(e.target.value)
     resetAlgo(s, setStats, setRunning, setPlaying)
+    setPathStory(null); setPathData(null)
   }
 
   function handleImport(e) {
@@ -278,9 +377,9 @@ export default function App() {
         setNodeOptions(options)
         setNodeCount(s.graph.nodes.size); setEdgeCount(s.graph.edges.size)
         setSourceId(null); setTargetId(null)
-        // Trigger analysis update
         const analysis = analyzeGraph(s.graph)
         setGraphAnalysis(analysis)
+        setPathStory(null); setPathData(null)
       } catch { /* invalid JSON */ }
     }
     reader.readAsText(file); e.target.value = ''
@@ -308,9 +407,43 @@ export default function App() {
     setNodeOptions(options)
     setNodeCount(s.graph.nodes.size); setEdgeCount(s.graph.edges.size)
     setSourceId(s.source); setTargetId(s.target)
-    // Trigger analysis update
     const analysis = analyzeGraph(s.graph)
     setGraphAnalysis(analysis)
+    setPathStory(null); setPathData(null)
+  }
+
+  function handleWeightAdjust(delta) {
+    if (!pathData || !appRef.current) return
+    const s = appRef.current
+    
+    let newTotalCost = 0
+    pathData.edges.forEach(eid => {
+      const edge = s.graph.edges.get(eid)
+      if (edge) {
+        newTotalCost += Math.max(1, edge.weight + delta)
+      }
+    })
+    
+    const change = newTotalCost - (pathData.distance || stats.pathCost)
+    const direction = change > 0 ? 'increase' : 'decrease'
+    const message = `If all edges ${delta > 0 ? 'increased' : 'decreased'} by ${Math.abs(delta)}, this path would ${direction} by ~${Math.abs(change).toFixed(1)} units. The algorithm might ${Math.abs(change) > 5 ? 'find a different route' : 'stick with this path'}.`
+    
+    alert(message)
+  }
+
+  function handleExpensiveEdgeAdjust() {
+    if (!pathStory || !appRef.current) return
+    const s = appRef.current
+    const expensiveEdge = s.graph.edges.get(pathStory.breakdown.mostExpensive.edge)
+    if (!expensiveEdge) return
+    
+    const oldWeight = expensiveEdge.weight
+    const newWeight = Math.ceil(oldWeight / 2)
+    const savings = oldWeight - newWeight
+    
+    const message = `If we halved the expensive edge (${expensiveEdge.source} → ${expensiveEdge.target}) from ${oldWeight} to ${newWeight}, we'd save ${savings} units. ${savings > 3 ? 'This could make alternative paths more attractive!' : 'The current path would likely remain optimal.'}`
+    
+    alert(message)
   }
 
   const info = ALGORITHMS[algorithm]
@@ -332,7 +465,6 @@ export default function App() {
 
         <main className="main">
           <aside className="sidebar">
-
             <section className="panel">
               <h3 className="panel-title">Algorithm</h3>
               <div className="algo-grid">
@@ -466,13 +598,89 @@ export default function App() {
                 <div className="legend-item"><span className="legend-dot path"></span> Shortest Path</div>
               </div>
             </section>
-
           </aside>
 
           <div className="canvas-container">
             <canvas ref={canvasRef} id="graph-canvas" />
             <div className="canvas-hint">Scroll to zoom · Drag to pan · Click nodes to select source / target</div>
           </div>
+
+          <aside className="sidebar sidebar-right">
+            {pathStory ? (
+              <>
+                <section className="panel story-panel">
+                  <h3 className="panel-title">📖 Path Story</h3>
+                  <div className="story-content">
+                    <p className="story-narrative">{pathStory.narrative}</p>
+                    <div className="story-insight">
+                      <span className="insight-icon">💡</span>
+                      <span className="insight-text">{pathStory.graphPattern}</span>
+                    </div>
+                  </div>
+                </section>
+
+                <section className="panel breakdown-panel">
+                  <h3 className="panel-title">🔍 Path Breakdown</h3>
+                  <div className="breakdown-grid">
+                    <div className="breakdown-item">
+                      <div className="breakdown-label">Most Expensive Edge</div>
+                      <div className="breakdown-value highlight-expensive">
+                        {pathStory.breakdown.mostExpensive.from} → {pathStory.breakdown.mostExpensive.to}
+                        <span className="breakdown-badge">{pathStory.breakdown.mostExpensive.weight}</span>
+                      </div>
+                    </div>
+                    <div className="breakdown-item">
+                      <div className="breakdown-label">Average Edge Weight</div>
+                      <div className="breakdown-value">{pathStory.breakdown.avgWeight}</div>
+                    </div>
+                    <div className="breakdown-item">
+                      <div className="breakdown-label">Search Efficiency</div>
+                      <div className="breakdown-value">{pathStory.breakdown.efficiency}% of graph</div>
+                    </div>
+                    <div className="breakdown-item">
+                      <div className="breakdown-label">Path Directness</div>
+                      <div className="breakdown-value">{pathStory.breakdown.directness}% optimal</div>
+                    </div>
+                  </div>
+                </section>
+
+                <section className="panel whatif-panel">
+                  <h3 className="panel-title">🎲 What If?</h3>
+                  <div className="whatif-content">
+                    <p className="whatif-desc">Adjust edge weights to see how the path might change</p>
+                    <div className="whatif-controls">
+                      <button className="whatif-btn" onClick={() => handleWeightAdjust(-1)}>
+                        <span className="whatif-icon">−</span>
+                        <span className="whatif-label">Reduce All Weights</span>
+                      </button>
+                      <button className="whatif-btn" onClick={() => handleWeightAdjust(1)}>
+                        <span className="whatif-icon">+</span>
+                        <span className="whatif-label">Increase All Weights</span>
+                      </button>
+                      <button className="whatif-btn whatif-expensive" onClick={() => handleExpensiveEdgeAdjust()}>
+                        <span className="whatif-icon">⚡</span>
+                        <span className="whatif-label">Halve Expensive Edge</span>
+                      </button>
+                    </div>
+                    <div className="whatif-hint">
+                      Changes are temporary and won't affect the current visualization
+                    </div>
+                  </div>
+                </section>
+              </>
+            ) : (
+              <section className="panel empty-story-panel">
+                <div className="empty-story">
+                  <div className="empty-icon">🎯</div>
+                  <h3 className="empty-title">Ready to Explore</h3>
+                  <p className="empty-text">
+                    Run an algorithm to see the path story unfold. 
+                    I'll analyze the journey and share insights about how the algorithm navigated the graph.
+                  </p>
+                </div>
+              </section>
+            )}
+          </aside>
         </main>
       </div>
 
