@@ -7,21 +7,21 @@ const ALGO_MAP = { bfs, dfs, dijkstra, aStar, bellmanFord };
 
 class App {
   constructor() {
-    this.graph    = new Graph();
-    this.canvas   = document.getElementById('graph-canvas');
+    this.graph = new Graph();
+    this.canvas = document.getElementById('graph-canvas');
     this.renderer = null;
 
     // algorithm state
-    this._gen       = null;     // current generator
-    this._timer     = null;
-    this._playing   = false;
-    this._running   = false;
+    this._gen = null;     // current generator
+    this._timer = null;
+    this._playing = false;
+    this._running = false;
 
     // settings
-    this.speed     = 150;       // ms per step
+    this.speed = 150;       // ms per step
     this.algorithm = 'dijkstra';
-    this.source    = null;
-    this.target    = null;
+    this.source = null;
+    this.target = null;
 
     // stats
     this.stats = this._emptyStats();
@@ -92,7 +92,7 @@ class App {
 
     // ── Canvas click → select nodes ──
     this.canvas.addEventListener('click', e => {
-      const r  = this.canvas.getBoundingClientRect();
+      const r = this.canvas.getBoundingClientRect();
       const id = this.renderer.hitTestNode(e.clientX - r.left, e.clientY - r.top);
       if (!id) return;
       if (!this.source || (this.source && this.target)) {
@@ -105,15 +105,15 @@ class App {
     });
 
     // ── Control buttons ──
-    document.getElementById('btn-run').addEventListener('click',   () => this._run());
-    document.getElementById('btn-step').addEventListener('click',  () => { if (!this._running) this._initAlgo(); this._step(); });
+    document.getElementById('btn-run').addEventListener('click', () => this._run());
+    document.getElementById('btn-step').addEventListener('click', () => { if (!this._running) this._initAlgo(); this._step(); });
     document.getElementById('btn-pause').addEventListener('click', () => this._pause());
-    document.getElementById('btn-skip').addEventListener('click',  () => this._skipToEnd());
+    document.getElementById('btn-skip').addEventListener('click', () => this._skipToEnd());
     document.getElementById('btn-reset').addEventListener('click', () => this._reset());
 
     // ── Speed ──
     const slider = document.getElementById('speed-slider');
-    const label  = document.getElementById('speed-value');
+    const label = document.getElementById('speed-value');
     slider.addEventListener('input', e => {
       this.speed = +e.target.value;
       label.textContent = `${this.speed}ms`;
@@ -168,7 +168,7 @@ class App {
     const fn = ALGO_MAP[this.algorithm];
     if (!fn) { this._toast('Unknown algorithm.', 'error'); return false; }
 
-    this._gen     = fn(this.graph, this.source, this.target);
+    this._gen = fn(this.graph, this.source, this.target);
     this._running = true;
     document.getElementById('btn-run').disabled = true;
     return true;
@@ -216,13 +216,13 @@ class App {
 
   _reset() {
     this._pause();
-    this._gen     = null;
+    this._gen = null;
     this._running = false;
     this._playing = false;
-    this.stats    = this._emptyStats();
+    this.stats = this._emptyStats();
     this.renderer.resetStates();
     this._syncStats();
-    document.getElementById('btn-run').disabled   = false;
+    document.getElementById('btn-run').disabled = false;
     document.getElementById('btn-pause').disabled = true;
   }
 
@@ -230,7 +230,7 @@ class App {
     this._running = false;
     this._playing = false;
     clearInterval(this._timer);
-    document.getElementById('btn-run').disabled   = false;
+    document.getElementById('btn-run').disabled = false;
     document.getElementById('btn-pause').disabled = true;
   }
 
@@ -277,18 +277,18 @@ class App {
   /* ─────────── UI helpers ─────────── */
 
   _syncStats() {
-    document.getElementById('stat-visited').textContent     = this.stats.visited;
-    document.getElementById('stat-explored').textContent    = this.stats.explored;
+    document.getElementById('stat-visited').textContent = this.stats.visited;
+    document.getElementById('stat-explored').textContent = this.stats.explored;
     document.getElementById('stat-path-length').textContent = this.stats.pathCost ?? '—';
-    document.getElementById('stat-path-nodes').textContent  = this.stats.pathHops ?? '—';
-    document.getElementById('stat-steps').textContent       = this.stats.steps;
+    document.getElementById('stat-path-nodes').textContent = this.stats.pathHops ?? '—';
+    document.getElementById('stat-steps').textContent = this.stats.steps;
   }
 
   _updateAlgoInfo() {
     const info = ALGORITHMS[this.algorithm];
     if (info) {
       document.getElementById('algo-description').textContent = info.description;
-      document.getElementById('algo-complexity').textContent  = info.complexity;
+      document.getElementById('algo-complexity').textContent = info.complexity;
     }
   }
 
@@ -329,8 +329,8 @@ class App {
   _exportGraph() {
     const json = JSON.stringify(this.graph.toJSON(), null, 2);
     const blob = new Blob([json], { type: 'application/json' });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
     a.href = url; a.download = 'graph.json'; a.click();
     URL.revokeObjectURL(url);
     this._toast('Graph exported as graph.json', 'success');
@@ -354,7 +354,7 @@ class App {
 
   _toast(msg, type = 'info') {
     const box = document.getElementById('notifications');
-    const el  = document.createElement('div');
+    const el = document.createElement('div');
     el.className = `notification ${type}`;
     el.textContent = msg;
     box.appendChild(el);
